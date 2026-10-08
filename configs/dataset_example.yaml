@@ -1,0 +1,9 @@
+# Copy this file and replace the path with your dataset root.
+path: /path/to/PCDD
+train: images/train
+val: images/val
+test: images/test
+
+names:
+  0: crater
+
