@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Environments and editors
+.venv/
+venv/
+.idea/
+.vscode/
+
+# Training and inference outputs
+runs/
+artifacts/
+logs/
+wandb/
+
+# Datasets and model weights are intentionally not versioned
+/data/
+/dataset/
+/datasets/
+/weights/
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.engine
+
+# Local files
+.DS_Store
+Thumbs.db
+*.log

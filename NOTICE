@@ -1,0 +1,11 @@
+ACDS-DETR
+Copyright (c) 2026 ACDS-DETR contributors
+
+This repository contains a modified Ultralytics-derived codebase and retains
+the original AGPL-3.0 licensing notices in the corresponding source files.
+
+Ultralytics: https://github.com/ultralytics/ultralytics
+RT-DETR: https://github.com/lyuwenyu/RT-DETR
+
+No dataset, trained checkpoint, or third-party image is distributed in this
+code-only release.
