@@ -36,7 +36,9 @@ python train.py --data configs/pcdd.yaml --imgsz 768 --epochs 150 --batch 8 --de
 ### Evaluation
 
 ```bash
-python val.py --weights /path/to/best.pt --data configs/pcdd.yaml --device 0
+python val.py --weights /path/to/best.pt \
+  --data configs/pcdd.yaml \
+  --split test --imgsz 768 --device 0
 ```
 
 ### Inference
