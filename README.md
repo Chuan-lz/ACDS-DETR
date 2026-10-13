@@ -2,7 +2,6 @@
 
 An RT-DETR-based framework for dense cross-scale crater detection in planetary imagery.
 
-ACDS-DETR combines **Spatial-SGE** for location-wise receptive-field selection with **RCR** for context-conditioned shallow-feature routing.
 
 ## Installation
 
