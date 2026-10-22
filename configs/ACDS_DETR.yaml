@@ -1,4 +1,6 @@
 # ACDS-DETR. Channels: 128/256/384/384; blocks: 1/1/1/3.
+# SACA: Spatially Adaptive Context Aggregation.
+# CGSF: Cross-Level Guided Shallow Fusion.
 nc: 1
 scale: l
 scales:
@@ -6,13 +8,13 @@ scales:
 backbone:
   - [-1, 1, Conv, [64, 3, 2]]
   - [-1, 1, Conv, [128, 3, 2]]
-  - [-1, 1, ACDSSGEEncoder, [128, 0.5]]
+  - [-1, 1, SACAStage, [128, 0.5]]
   - [-1, 1, Conv, [256, 3, 2]]
-  - [-1, 1, ACDSSGEEncoder, [256, 0.5]]
+  - [-1, 1, SACAStage, [256, 0.5]]
   - [-1, 1, Conv, [384, 3, 2]]
-  - [-1, 1, ACDSSGEEncoder, [384, 0.5]]
+  - [-1, 1, SACAStage, [384, 0.5]]
   - [-1, 1, Conv, [384, 3, 2]]
-  - [-1, 3, ACDSSGEEncoder, [384, 0.5]]
+  - [-1, 3, SACAStage, [384, 0.5]]
 head:
   - [-1, 1, Conv, [256, 1, 1, null, 1, 1, false]]
   - [-1, 1, AIFI, [1024, 8]]
@@ -23,7 +25,7 @@ head:
   - [-1, 3, RepC3, [256, 0.5]]
   - [-1, 1, Conv, [128, 1, 1]]
   - [-1, 1, nn.Upsample, [null, 2, nearest]]
-  - [[2, 4, -1], 1, ACDSCueRouter, [256, 128, 3, 0.5]]
+  - [[2, 4, -1], 1, CGSF, [256, 128, 3, 0.5]]
   - [-1, 1, Conv, [256, 3, 2]]
   - [[-1, 16], 1, Concat, [1]]
   - [-1, 3, RepC3, [256, 0.5]]
