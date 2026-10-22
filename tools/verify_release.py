@@ -1,7 +1,3 @@
-"""CPU architecture/backward checks; optional numerical comparison to a trusted reference.
-
-Run from the release root. This does not launch a training experiment.
-"""
 import argparse
 import json
 import sys
@@ -14,7 +10,10 @@ sys.path.insert(0, str(ROOT))
 def main():
     import torch
     from ultralytics import RTDETR
-    from ultralytics.nn.extra_modules.acds import ACDSSGEEncoder, ACDSCueRouter, SpatialScaleSelection
+    from ultralytics.nn.extra_modules.acds import (
+        SACAStage, SACABlock, CGSF,
+        LocationWiseReceptiveFieldWeighting, SpatiallyGatedResidualRefinement,
+    )
     from ultralytics.utils import DEFAULT_CFG_DICT
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--weights', help='Trusted ACDS-DETR checkpoint.')
@@ -27,10 +26,12 @@ def main():
         from release_utils import load_weights_strict
         load_weights_strict(wrapper, args.weights)
     net = wrapper.model.float().cpu().eval()
-    stages = [m for m in net.modules() if isinstance(m, ACDSSGEEncoder)]
+    stages = [m for m in net.modules() if isinstance(m, SACAStage)]
     assert [m.cv3.conv.out_channels for m in stages] == [128,256,384,384]
     assert [len(m.m) for m in stages] == [1,1,1,3]
-    assert sum(isinstance(m, ACDSCueRouter) for m in net.modules()) == 1
+    assert sum(isinstance(m, SACABlock) for m in net.modules()) == 6
+    assert sum(isinstance(m, SpatiallyGatedResidualRefinement) for m in net.modules()) == 6
+    assert sum(isinstance(m, CGSF) for m in net.modules()) == 1
     assert sum(p.numel() for p in net.parameters()) == 13781709
     assert net.model[-1].num_queries == 300 and net.model[-1].nl == 3
     reference = torch.load(args.reference, map_location='cpu', weights_only=False) if args.reference else None
@@ -48,7 +49,7 @@ def main():
             torch.testing.assert_close(output, reference['outputs'][size],rtol=1e-5,atol=1e-6)
             differences[size] = float((output-reference['outputs'][size]).abs().max())
         for module in net.modules():
-            if isinstance(module,SpatialScaleSelection):
+            if isinstance(module,LocationWiseReceptiveFieldWeighting):
                 weights = module.last_scale_weights
                 assert weights.shape[1:3] == (3,1)
                 torch.testing.assert_close(weights.sum(1),torch.ones_like(weights[:,0]))
@@ -67,8 +68,8 @@ def main():
     for parameter in net.parameters():
         if parameter.grad is not None: assert torch.isfinite(parameter.grad).all()
     assert stages[0].m[0].context.score[0].weight.grad is not None
-    router = next(m for m in net.modules() if isinstance(m,ACDSCueRouter))
-    assert router.reliability_gate.gate[1].weight.grad is not None
+    fusion = next(m for m in net.modules() if isinstance(m,CGSF))
+    assert fusion.reliability_gate.gate[1].weight.grad is not None
     print(json.dumps(dict(status='PASS',parameters=13781709,queries=300,
               loss=float(loss.detach()),reference_max_absolute_errors=differences,
               source_sha256=reference['source_sha256'] if reference else None),indent=2))
