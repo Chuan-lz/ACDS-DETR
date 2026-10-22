@@ -134,11 +134,3 @@ class CGSF(nn.Module):
         return self.rep(torch.cat((top_down, lateral, shallow * gate), dim=1))
 
 
-# Import aliases preserve checkpoint and configuration compatibility.
-# Registered module attribute names are unchanged to preserve state_dict keys.
-SpatialScaleSelection = LocationWiseReceptiveFieldWeighting
-SpatialEvidenceRefiner = SpatiallyGatedResidualRefinement
-SpatialSGEBlock = SACABlock
-ACDSSGEEncoder = SACAStage
-ContextConditionedGate = CrossLevelSpatialGate
-ACDSCueRouter = CGSF
