@@ -1,4 +1,5 @@
-"""ACDS-DETR: Spatial-SGE and resolution-aligned cue routing.
+"""ACDS-DETR: Spatially Adaptive Context Aggregation (SACA) and
+Cross-Level Guided Shallow Fusion (CGSF).
 
 This module depends only on PyTorch and the shared Conv/RepC3 primitives.
 """
@@ -9,11 +10,11 @@ import torch.nn.functional as F
 from ..modules.conv import Conv
 from ..modules.block import RepC3
 
-__all__ = ('ACDSSGEEncoder', 'ACDSCueRouter')
+__all__ = ('SACAStage', 'CGSF', 'ACDSSGEEncoder', 'ACDSCueRouter')
 
 
-class SpatialScaleSelection(nn.Module):
-    """Channel-shared, location-wise softmax over dilation {3, 5, 7}."""
+class LocationWiseReceptiveFieldWeighting(nn.Module):
+    """Aggregate dilation {3, 5, 7} responses with channel-shared spatial weights."""
 
     def __init__(self, channels):
         super().__init__()
@@ -29,8 +30,8 @@ class SpatialScaleSelection(nn.Module):
         return (torch.stack(features, dim=1) * weights).sum(dim=1)
 
 
-class SpatialEvidenceRefiner(nn.Module):
-    """Spatial modulation of the evidence branch, shared across channels."""
+class SpatiallyGatedResidualRefinement(nn.Module):
+    """Spatially gate and project a residual feature update, shared across channels."""
 
     def __init__(self, channels):
         super().__init__()
@@ -41,32 +42,34 @@ class SpatialEvidenceRefiner(nn.Module):
         self.last_spatial_gate = None
 
     def forward(self, x):
-        local, evidence = self.expand(x).chunk(2, dim=1)
-        gate = self.gate(self.local(local))
+        gate_features, residual = self.expand(x).chunk(2, dim=1)
+        gate = self.gate(self.local(gate_features))
         self.last_spatial_gate = gate.detach()
-        return self.project(evidence * gate)
+        return self.project(residual * gate)
 
 
-class SpatialSGEBlock(nn.Module):
+class SACABlock(nn.Module):
+    """Location-wise context aggregation followed by spatially gated refinement."""
+
     def __init__(self, channels):
         super().__init__()
-        self.context = SpatialScaleSelection(channels)
-        self.spatial = SpatialEvidenceRefiner(channels)
+        self.context = LocationWiseReceptiveFieldWeighting(channels)
+        self.spatial = SpatiallyGatedResidualRefinement(channels)
 
     def forward(self, x):
         selected = x + self.context(x)
         return selected + self.spatial(selected)
 
 
-class ACDSSGEEncoder(nn.Module):
-    """CSP-style stage with an iterative Spatial-SGE path and a bypass path."""
+class SACAStage(nn.Module):
+    """Spatially Adaptive Context Aggregation stage with refinement and bypass paths."""
 
     def __init__(self, c1, c2, n=1, e=0.5):
         super().__init__()
         hidden = max(1, int(c2 * e))
         self.cv1 = Conv(c1, hidden, 1)
         self.cv2 = Conv(c1, hidden, 1)
-        self.m = nn.Sequential(*(SpatialSGEBlock(hidden) for _ in range(n)))
+        self.m = nn.Sequential(*(SACABlock(hidden) for _ in range(n)))
         self.cv3 = Conv(hidden * 2, c2, 1)
 
     def forward(self, x):
@@ -86,7 +89,9 @@ class SpaceToDepthAlignment(nn.Module):
         return self.conv(x)
 
 
-class ContextConditionedGate(nn.Module):
+class CrossLevelSpatialGate(nn.Module):
+    """Cross-level-conditioned spatial gating from shallow, lateral and top-down features."""
+
     def __init__(self, c_p2, c_p3, c_td, c_gate):
         super().__init__()
         self.p2_proj = Conv(c_p2, c_gate, 1)
@@ -102,18 +107,18 @@ class ContextConditionedGate(nn.Module):
         return gate
 
 
-class ACDSCueRouter(nn.Module):
-    """S2D alignment -> shallow-only gate -> concatenate -> RepC3.
+class CGSF(nn.Module):
+    """Cross-Level Guided Shallow Fusion: S2D -> shallow-only gate -> concat -> RepC3.
 
     Lateral and top-down features condition the gate but are not gated.
-    The routed feature enters the three-level detection hierarchy.
+    The fused feature enters the three-level detection hierarchy.
     """
 
     def __init__(self, c_p2, c_p3, c_td, c_out=256, c_align=None, n=3, e=0.5):
         super().__init__()
         c_align = c_td if c_align is None else c_align
         self.align = SpaceToDepthAlignment(c_p2, c_align)
-        self.reliability_gate = ContextConditionedGate(c_align, c_p3, c_td, c_align)
+        self.reliability_gate = CrossLevelSpatialGate(c_align, c_p3, c_td, c_align)
         self.rep = RepC3(c_td + c_p3 + c_align, c_out, n=n, e=e)
         self.last_gate = None
 
@@ -127,3 +132,13 @@ class ACDSCueRouter(nn.Module):
         gate = self.reliability_gate(shallow, lateral, top_down)
         self.last_gate = gate.detach()
         return self.rep(torch.cat((top_down, lateral, shallow * gate), dim=1))
+
+
+# Import aliases preserve checkpoint and configuration compatibility.
+# Registered module attribute names are unchanged to preserve state_dict keys.
+SpatialScaleSelection = LocationWiseReceptiveFieldWeighting
+SpatialEvidenceRefiner = SpatiallyGatedResidualRefinement
+SpatialSGEBlock = SACABlock
+ACDSSGEEncoder = SACAStage
+ContextConditionedGate = CrossLevelSpatialGate
+ACDSCueRouter = CGSF
