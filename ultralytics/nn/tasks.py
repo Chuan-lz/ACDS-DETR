@@ -753,14 +753,14 @@ def parse_model(d, ch, verbose=True, warehouse_manager=None):  # model_dict, inp
                         args[j] = a
 
         n = n_ = max(round(n * depth), 1) if n > 1 else n  # depth gain
-        if m in (Conv, CSP, RepC3, ACDSSGEEncoder):
+        if m in (Conv, CSP, RepC3, SACAStage):
             if args[0] == 'head_channel':
                 args[0] = d[args[0]]
             c1, c2 = ch[f], args[0]
             if c2 != nc:  # if c2 not equal to number of classes (i.e. for Classify() output)
                 c2 = make_divisible(min(c2, max_channels) * width, 8)
             args = [c1, c2, *args[1:]]
-            if m in (CSP, RepC3, ACDSSGEEncoder):
+            if m in (CSP, RepC3, SACAStage):
                 args.insert(2, n)  # number of repeats
                 n = 1
         elif m is ConvNormLayer:
@@ -784,7 +784,7 @@ def parse_model(d, ch, verbose=True, warehouse_manager=None):  # model_dict, inp
         elif m is RTDETRDecoder:  # special case, channels arg must be passed in index 1
             args.insert(1, [ch[x] for x in f])
 
-        elif m is ACDSCueRouter:
+        elif m is CGSF:
             c_p2, c_p3, c_td = [ch[x] for x in f]
             c2 = args[0] if len(args) > 0 else 256
             if c2 != nc:
@@ -792,9 +792,9 @@ def parse_model(d, ch, verbose=True, warehouse_manager=None):  # model_dict, inp
             c_align = args[1] if len(args) > 1 else None
             if c_align is not None:
                 c_align = make_divisible(min(c_align, max_channels) * width, 8)
-            rcr_n = args[2] if len(args) > 2 else 3
-            rcr_e = args[3] if len(args) > 3 else 0.5
-            args = [c_p2, c_p3, c_td, c2, c_align, rcr_n, rcr_e]
+            fusion_n = args[2] if len(args) > 2 else 3
+            fusion_e = args[3] if len(args) > 3 else 0.5
+            args = [c_p2, c_p3, c_td, c2, c_align, fusion_n, fusion_e]
 
         if isinstance(c2, list):
             is_backbone = True
