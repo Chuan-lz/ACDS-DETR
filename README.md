@@ -2,6 +2,7 @@
 
 An RT-DETR-based framework for dense cross-scale crater detection in planetary imagery.
 
+ACDS-DETR combines a **Spatially Adaptive Context Aggregation (SACA)** backbone with **Cross-Level Guided Shallow Fusion (CGSF)**. SACA learns location-wise mixtures of multi-range contextual responses, while CGSF selectively incorporates shallow features under cross-level guidance.
 
 ## Installation
 
@@ -36,9 +37,7 @@ python train.py --data configs/pcdd.yaml --imgsz 768 --epochs 150 --batch 8 --de
 ### Evaluation
 
 ```bash
-python val.py --weights /path/to/best.pt \
-  --data configs/pcdd.yaml \
-  --split test --imgsz 768 --device 0
+python val.py --weights /path/to/best.pt --data configs/pcdd.yaml --device 0
 ```
 
 ### Inference
@@ -52,7 +51,7 @@ Use a compatible ACDS-DETR checkpoint from a trusted source. Results are saved u
 ## Model
 
 - [Model configuration](configs/ACDS_DETR.yaml)
-- [Spatial-SGE and RCR implementation](ultralytics/nn/extra_modules/acds.py)
+- [SACA and CGSF implementation](ultralytics/nn/extra_modules/acds.py)
 
 ## Acknowledgements and License
 
